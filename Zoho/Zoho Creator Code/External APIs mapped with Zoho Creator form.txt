@@ -1,6 +1,6 @@
 void apiWithZohoCreator(int recid)
 {
-    empinfo = Employee[ID == recid];
+    empinfo = Employee[ID == recid];//find out duplicate value or record
     apiUrl = "https://31.biocloud.me:8100/api_gettransctions";
     headermap = Map();
     headermap.put("Token", "285ee051e8be4d92aaa63f4445a41401");
@@ -37,4 +37,5 @@ void apiWithZohoCreator(int recid)
 			];
 		}
 	}
+
 }
