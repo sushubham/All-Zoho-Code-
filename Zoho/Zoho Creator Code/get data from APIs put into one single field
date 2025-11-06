@@ -1,0 +1,38 @@
+void LogsforAttandancebysv(int recid)
+{
+	empinfo = Employee[ID == recid];
+	//find out duplicate value or record
+	apiUrl = "https://31.biocloud.me:8100/api_gettransctions";
+	headermap = Map();
+	headermap.put("Token","285ee051e8be4d92aaa63f4445a41401");
+	headermap.put("Content-Type","application/json");
+	paramp = Map();
+	paramp.put("badgeNumber",empinfo.BadgeNumber);
+	response = invokeurl
+	[
+		url :apiUrl
+		type :POST
+		parameters:paramp.toString()
+		headers:headermap
+	];
+	//     info "API Response: " + response; //GIVES NULL VALUE
+	resultList = response.get("message");
+	//get message
+	// 	info resultList.toJSONList();
+	for each  params in resultList.toJSONList()
+	{
+		//convert into JSON Object
+		idValue = params.get("Id");
+		// 		info idValue;
+		existing = LogsAttendaceModule[ID == idValue];
+		if(existing.ID.isEmpty())
+		{
+			allData = "Id: " + idValue + "\n" + "VerifyType: " + params.get("VerifyType").toString() + "\n" + "VerifyTime: " + params.get("VerifyTime").toString() + "\n" + "Status: " + params.get("Status") + "\n" + "StatusId: " + params.get("StatusId") + "\n" + "DeviceSerialNumber: " + params.get("DeviceSerialNumber").toString() + "\n" + "DeviceAliasName: " + params.get("DeviceAliasName").toString();
+			attendata = insert into LogsAttendaceModule
+			[
+				Added_User=zoho.loginuser
+				response_field=allData
+			];
+		}
+	}
+}
