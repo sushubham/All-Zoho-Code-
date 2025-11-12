@@ -1,0 +1,96 @@
+void ZCreator.New_push_data_creator_into_people(string empId)
+{
+	// STEP 1: Get Employee Details from Zoho People
+	apiUrlEmp = "https://people.zoho.com/people/api/forms/P_EmployeeView/records?searchColumn=EMPLOYEEID&searchValue=" + empId;
+	responseEmp = invokeurl
+	[
+		url : apiUrlEmp
+		type : GET
+		connection : "zoho_people_connection1"
+	];
+
+// 	info responseEmp;
+
+	recordId = "";
+	emailAddress = "";
+
+	for each rec in responseEmp
+	{
+		recordId = rec.get("recordId");
+		emailAddress = rec.get("Email address");
+	}
+
+	// STEP 2: Fetch Attendance Entries from Creator
+	creatorResponse = Attendance_Entries[EmployeeId == empId];
+	entryExitData = List();
+
+	for each recordatt in creatorResponse
+	{
+		DeviceSerialNumber = recordatt.DeviceSerialNumber;
+		VerifyTime1 = recordatt.VerifyTime12;
+
+		if (DeviceSerialNumber == "CQUG231260269") // Entry Device
+		{
+			entryMap = Map();
+			entryMap.put("empId", empId); // ✅ Correct key
+			entryMap.put("checkIn", VerifyTime1.toString("yyyy-MM-dd HH:mm:ss")); // ✅ Correct field name
+			entryExitData.add(entryMap);
+		}
+		else if (DeviceSerialNumber == "SYZ8241001698") // Exit Device
+		{
+			exitMap = Map();
+			exitMap.put("empId", empId); // ✅ Correct key
+			exitMap.put("checkOut", VerifyTime1.toString("yyyy-MM-dd HH:mm:ss")); // ✅ Correct field name
+			entryExitData.add(exitMap);
+		}
+	}
+
+	info "Entry/Exit Data:";
+	info entryExitData;
+
+	// STEP 3: Prepare Data List for Attendance Bulk Import
+	recordsList = List();
+	for each recordkey in entryExitData
+	{
+    if (recordkey != null)
+    {
+        recordData = Map();
+        recordData.put("empId", empId);
+
+        checkInVal = ifnull(recordkey.get("checkIn"), "");
+        checkOutVal = ifnull(recordkey.get("checkOut"), "");
+
+        // Only add to list if at least one value exists
+        if (checkInVal != "" || checkOutVal != "")
+        {
+            if (checkInVal != "")
+            {
+                recordData.put("checkIn", checkInVal);
+            }
+
+            if (checkOutVal != "")
+            {
+                recordData.put("checkOut", checkOutVal);
+            }
+
+            recordsList.add(recordData);
+        }
+    }
+}
+	info "recorded List " + recordsList;
+	// STEP 4: Create Parameter Map for Bulk Import
+	paramMap = Map();
+	paramMap.put("data", recordsList);
+	paramMap.put("dateFormat", "yyyy-MM-dd HH:mm:ss");
+	info "Payload:" + paramMap;
+
+// 	STEP 5: Send Bulk Import Request
+	createResponse = invokeurl
+	[
+		url : "https://people.zoho.com/people/api/attendance/bulkImport"
+		type : POST
+		parameters : paramMap
+		connection : "zoho_people_connection1"
+	];
+	info "Bulk Import Response:" + createResponse;
+}
