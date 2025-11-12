@@ -1,0 +1,201 @@
+void ZCreator.New_push_data_creator_into_people(string empId)
+{
+    // STEP 1: Fetch Employee Details from Zoho People using Employee ID
+  
+    apiUrlEmp = "https://people.zoho.com/people/api/forms/P_EmployeeView/records?searchColumn=EMPLOYEEID&searchValue=" + empId;
+    responseEmp = invokeurl
+    [
+        url :apiUrlEmp       
+        type :GET            
+        connection:"zoho_people_connection1"  
+    ];
+    
+    // Initialize variables to store employee details
+    recordId = "";       
+    emailAddress = "";   
+    
+    for each rec in responseEmp
+    {
+        recordId = rec.get("recordId");
+        emailAddress = rec.get("Email address");
+    }
+    
+    // STEP 2: Fetch Attendance Entries from Zoho Creator
+  
+    creatorResponse = Attendance_Entries[EmployeeId == empId];
+    entryExitData = List();
+    
+    for each recordatt in creatorResponse
+    {
+        DeviceSerialNumber = recordatt.DeviceSerialNumber;
+        VerifyTime1 = recordatt.VerifyTime12;
+        
+        if(DeviceSerialNumber == "CQUG231260269") // Entry Device
+        {
+            entryMap = Map();
+            entryMap.put("empId", empId);
+            entryMap.put("checkIn", VerifyTime1.toString("yyyy-MM-dd HH:mm:ss"));
+            entryExitData.add(entryMap);
+        }
+        else if(DeviceSerialNumber == "SYZ8241001698") // Exit Device
+        {
+            exitMap = Map();
+            exitMap.put("empId", empId);
+            exitMap.put("checkOut", VerifyTime1.toString("yyyy-MM-dd HH:mm:ss"));
+            entryExitData.add(exitMap);
+        }
+    }
+    
+    // =====================================================================
+    // STEP 3: Combine Entry and Exit Data by Date
+    // =====================================================================
+    dateWiseMap = Map();
+    
+    for each recordkey in entryExitData
+    {
+        checkInVal = ifnull(recordkey.get("checkIn"),"");
+        checkOutVal = ifnull(recordkey.get("checkOut"),"");
+        
+        if(checkInVal != "")
+        {
+            dateOnly = checkInVal.toDate("yyyy-MM-dd HH:mm:ss").toString("yyyy-MM-dd");
+            if(!dateWiseMap.containKey(dateOnly))
+            {
+                dateWiseMap.put(dateOnly, Map());
+            }
+            dateMap = dateWiseMap.get(dateOnly);
+            dateMap.put("checkIn", checkInVal);
+            dateWiseMap.put(dateOnly, dateMap);
+        }
+
+        if(checkOutVal != "")
+        {
+            dateOnly = checkOutVal.toDate("yyyy-MM-dd HH:mm:ss").toString("yyyy-MM-dd");
+            if(!dateWiseMap.containKey(dateOnly))
+            {
+                dateWiseMap.put(dateOnly, Map());
+            }
+            dateMap = dateWiseMap.get(dateOnly);
+            dateMap.put("checkOut", checkOutVal);
+            dateWiseMap.put(dateOnly, dateMap);
+        }
+    }
+
+    
+    // STEP 4: Convert grouped data into list
+    
+    recordsList = List();
+    
+    for each dateEntry in dateWiseMap.keys()
+    {
+        recordData = Map();
+        recordData.put("empId", empId);
+        dateMap = dateWiseMap.get(dateEntry);
+        
+        if(dateMap.containKey("checkIn"))
+        {
+            recordData.put("checkIn", dateMap.get("checkIn"));
+        }
+        if(dateMap.containKey("checkOut"))
+        {
+            recordData.put("checkOut", dateMap.get("checkOut"));
+        }
+        
+        recordsList.add(recordData);
+    }
+
+    
+    // STEP 5: Validate Dates (31-day rule) and separate valid/invalid
+   
+    todayDate = zoho.currenttime; // include time
+
+validRecordsList = List();
+invalidRecordsList = List();
+
+for each rec in recordsList
+{
+    isValid = true;
+    invalidFields = Map();
+
+    // Check-In validation
+    if(rec.containKey("checkIn"))
+    {
+        checkInDate = rec.get("checkIn").toDate("yyyy-MM-dd HH:mm:ss");
+        if(checkInDate != null)
+        {
+            daysDiff = abs(todayDate.daysBetween(checkInDate));
+            if(daysDiff > 31)
+            {
+                isValid = false;
+                invalidFields.put("checkIn", rec.get("checkIn"));
+            }
+        }
+        else
+        {
+            isValid = false;
+            invalidFields.put("checkIn", "Invalid format: " + rec.get("checkIn"));
+        }
+    }
+
+    // Check-Out validation
+    if(rec.containKey("checkOut"))
+    {
+        checkOutDate = rec.get("checkOut").toDate("yyyy-MM-dd HH:mm:ss");
+        if(checkOutDate != null)
+        {
+            daysDiff = abs(todayDate.daysBetween(checkOutDate));
+            if(daysDiff > 31)
+            {
+                isValid = false;
+                invalidFields.put("checkOut", rec.get("checkOut"));
+            }
+        }
+        else
+        {
+            isValid = false;
+            invalidFields.put("checkOut", "Invalid format: " + rec.get("checkOut"));
+        }
+    }
+
+    // Add to valid or invalid lists
+    if(isValid)
+    {
+        validRecordsList.add(rec);
+    }
+    else
+    {
+        rec.put("invalidFields", invalidFields);
+        invalidRecordsList.add(rec);
+    }
+}
+
+// Debug
+info "Valid Records: " + validRecordsList;
+info "Invalid Records (outside 31-day range): " + invalidRecordsList;
+
+//     info "Invalid Records (outside 31-day range): " + invalidRecordsList;
+
+
+    // STEP 6: Send valid records to Zoho People Attendance API
+   
+    if(validRecordsList.size() > 0)
+    {
+        paramMap = Map();
+        paramMap.put("data", validRecordsList);
+        paramMap.put("dateFormat", "yyyy-MM-dd HH:mm:ss");
+
+        createResponse = invokeurl
+        [ 
+            url :"https://people.zoho.com/people/api/attendance/bulkImport" 
+            type :POST          
+            parameters:paramMap
+            connection:"zoho_people_connection1" 
+        ]; 
+
+        info "Bulk Import Response:" + createResponse;
+    }
+    else
+    {
+        info "No valid attendance records to import.";
+    }
+}
