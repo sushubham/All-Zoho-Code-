@@ -1,0 +1,45 @@
+void ZCreator.All_Attendance_Entriess(int recid)
+{
+	empinfo = Employee[ID == recid];
+	//find out duplicate value or record
+	apiUrl = "https://31.biocloud.me:8100/api_gettransctions";
+	headermap = Map();
+	headermap.put("Token","285ee051e8be4d92aaa63f4445a41401");
+	headermap.put("Content-Type","application/json");
+	paramp = Map();
+	paramp.put("badgeNumber",empinfo.BadgeNumber);
+	response = invokeurl
+	[
+		url :apiUrl
+		type :POST
+		parameters:paramp.toString()
+		headers:headermap
+	];
+	//     info "API Response: " + response; //GIVES NULL VALUE
+	resultList = response.get("message");
+	//get message
+	// 	info resultList.toJSONList();
+	for each  params in resultList.toJSONList()
+	{
+		//convert into JSON Object
+		idValue = params.get("Id");
+		// 		info idValue;
+		existing = Attendance_Entries[Id1 == idValue];
+		if(existing.ID.isEmpty())
+		{
+			attendata = insert into Attendance_Entries
+			[
+				Added_User=zoho.loginuser
+				Id1=idValue
+				VerifyType=params.get("VerifyType").toString()
+				VerifyTime12=params.get("VerifyTime").toDateTime("yyyy-MM-dd'T'HH:mm:ss").toString("yyyy-MM-dd HH:mm:ss")
+				Status=params.get("Status")
+				StatusId=params.get("StatusId")
+				DeviceSerialNumber=params.get("DeviceSerialNumber").toString()
+				DeviceAliasName=params.get("DeviceAliasName").toString()
+				EmployeeId=params.get("BadgeNumber")
+			];
+			info attendata;
+		}
+	}
+}
