@@ -1,0 +1,67 @@
+void automation.file_upload(Int id)
+{
+    // Step 1: Get Lead Details
+    lead = zoho.crm.getRecordById("Leads", id.toLong());
+    customerName = lead.get("Full_Name");  // Change field if needed
+    if(customerName == null || customerName == "")
+    {
+        info "Customer name is empty. Cannot create folder.";
+        return;
+    }
+
+    folderId = "";  // Will store the folder ID
+
+    // Step 2: Try creating folder in WorkDrive
+    try
+    {
+        folderResp = zoho.workdrive.createFolder(customerName, "vok9198bab49bf59748f1beb701fc5111d171", "upload_attachment_into_drive");
+        folderId = folderResp.get("data").get("id");
+        info "Folder created: " + customerName;
+    }
+    catch (e)
+    {
+        // If folder already exists, creation will throw an error
+        info "Folder already exists or creation failed, using root folder: " + "vok9198bab49bf59748f1beb701fc5111d171";
+        folderId = "vok9198bab49bf59748f1beb701fc5111d171";
+    }
+
+    // Step 3: Get related attachments
+    relatedrecords = zoho.crm.getRelatedRecords("Attachments","Leads",id.toLong());
+    info relatedrecords;
+
+    uploadedFileNames = List();   // Track unique filenames
+
+    for each ele in relatedrecords
+    {
+        attachmentId = ele.get("id");
+        fileName = ele.get("File_Name");
+
+        // Skip if this file name already processed
+        if(uploadedFileNames.contains(fileName))
+        {
+            info "Skipping duplicate file: " + fileName;
+            continue;
+        }
+
+        uploadedFileNames.add(fileName);
+
+        // Download file
+        downloadFile = invokeurl
+        [
+            url :"https://www.zohoapis.com/crm/v2/Leads/" + id + "/Attachments/" + attachmentId
+            type :GET
+            connection:"attachment_crm"
+        ];
+
+        // Upload to WorkDrive inside the folder
+        resp3 = zoho.workdrive.uploadFile(
+                    downloadFile,
+                    folderId,
+                    fileName,
+                    false,
+                    "upload_attachment_into_drive"
+                );
+
+        info "Uploaded to WorkDrive folder '" + customerName + "': " + fileName;
+    }
+}
