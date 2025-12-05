@@ -1,0 +1,364 @@
+1. //contacts
+void Endpoints.Contacts_data()
+{
+	karbon_access_key = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJLYXJib25IUSIsInJlZyI6InVrMiIsInRhayI6IkY5Q0Q2MTAwLTdCMUQtNEMyQi05QUVFLTkxRDIwREVDQTc4MSIsImlhdCI6MTY5ODMwMDU3MS4wfQ.uHUB0yis8KdVrA14FYNI1v4SEDdZMyAuE2CUbV-IYD0";
+	karbon_token = "ac32db76-8f09-4429-a5a9-9947f891baa8";
+	karbon_base_url = "https://api.karbonhq.com/v3/";
+	// Step 1: API call
+	response = invokeurl
+	[
+		url :karbon_base_url + "contacts"
+		type :GET
+		headers:{"Accept":"application/json","Content-Type":"application/json","accessKey":karbon_access_key,"Authorization":"Bearer " + karbon_token}
+	];
+	// Optional: store whole JSON to ResponseContact form
+	insert into contactResponse
+	[
+		Added_User=zoho.loginuser
+		contactResponseAll=response
+	]
+	// Step 2: extract contacts list (adjust based on API structure)
+	contact_list = response.get("value");
+	// Most APIs return {"data": [...] }
+	// Step 3: validate list
+	if(contact_list != null)
+	{
+		for each  contact in contact_list
+		{
+			LastModifiedDate = ifnull(contact.get("LastModifiedDateTime"),"");
+			formattedStart = LastModifiedDate.replaceAll("T"," ").remove("Z");
+			// Step 4: Insert each contact
+			insert into Contacts
+			[
+				Added_User=zoho.loginuser
+				Full_Name.first_name=contact.get("FullName")
+				Contact_Key=contact.get("ContactKey")
+				contacts=contact.get("@odata.type")
+				Preferred_Name=contact.get("PreferredName")
+				Salutation=contact.get("Salutation")
+				Client_Owner=contact.get("ClientOwner")
+				Client_Manager=contact.get("ClientManager")
+				Address=contact.get("Address")
+				Email=contact.get("EmailAddress")
+				Phone_Number=contact.get("PhoneNumber")
+				Role_Or_Title=contact.get("RoleOrTitle")
+				Contact_Type=contact.get("ContactType")
+				User_Defined_Identifier=contact.get("UserDefinedIdentifier")
+				Last_Modified_Date_Time=formattedStart
+				Tags=contact.get("Tags")
+			]
+		}
+	}
+}
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+2. //Organizations
+
+void Endpoints.Organization_data()
+{
+	karbon_access_key = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJLYXJib25IUSIsInJlZyI6InVrMiIsInRhayI6IkY5Q0Q2MTAwLTdCMUQtNEMyQi05QUVFLTkxRDIwREVDQTc4MSIsImlhdCI6MTY5ODMwMDU3MS4wfQ.uHUB0yis8KdVrA14FYNI1v4SEDdZMyAuE2CUbV-IYD0";
+	karbon_token = "ac32db76-8f09-4429-a5a9-9947f891baa8";
+	karbon_base_url = "https://api.karbonhq.com/v3/";
+	// Step 1: API call
+	response = invokeurl
+	[
+		url :karbon_base_url + "Organizations"
+		type :GET
+		headers:{"Accept":"application/json","Content-Type":"application/json","accessKey":karbon_access_key,"Authorization":"Bearer " + karbon_token}
+	];
+	// Optional: store whole JSON to ResponseContact form
+	insert into OrgaizationAllresponse
+	[
+		Added_User=zoho.loginuser
+		OrgAllResponse=response
+	]
+	// Step 2: extract contacts list (adjust based on API structure)
+	org_list = response.get("value");
+	// Most APIs return {"data": [...] }
+	// Step 3: validate list
+	if(org_list != null)
+	{
+		for each  org in org_list
+		{
+			LastModifiedDate = ifnull(org.get("LastModifiedDateTime"),"");
+			formattedStart = LastModifiedDate.replaceAll("T"," ").remove("Z");
+			// Step 4: Insert each contact
+			insert into Organization
+			[
+				Added_User=zoho.loginuser
+				Full_Name.first_name=org.get("FullName")
+				Phone_Number1=org.get("PhoneNumber")
+				data_type=org.get("@odata.type")
+				Organization_Key=org.get("OrganizationKey")
+				Website=org.get("Website")
+				Email=org.get("EmailAddress")
+				Contact_Type=org.get("ContactType")
+				Last_Modified_Date_Time=formattedStart
+			]
+		}
+	}
+}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+3. //Timesheets
+
+void Endpoints.timeSheet_data()
+{
+	karbon_access_key = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJLYXJib25IUSIsInJlZyI6InVrMiIsInRhayI6IkY5Q0Q2MTAwLTdCMUQtNEMyQi05QUVFLTkxRDIwREVDQTc4MSIsImlhdCI6MTY5ODMwMDU3MS4wfQ.uHUB0yis8KdVrA14FYNI1v4SEDdZMyAuE2CUbV-IYD0";
+	karbon_token = "ac32db76-8f09-4429-a5a9-9947f891baa8";
+	karbon_base_url = "https://api.karbonhq.com/v3/";
+	// Step 1: API call
+	response = invokeurl
+	[
+		url :karbon_base_url + "Timesheets"
+		type :GET
+		headers:{"Accept":"application/json","Content-Type":"application/json","accessKey":karbon_access_key,"Authorization":"Bearer " + karbon_token}
+	];
+	// Optional: store whole JSON to ResponseContact form
+	insert into timeResponseAll
+	[
+		Added_User=zoho.loginuser
+		timeSheetResponse=response
+	]
+	// Step 2: extract contacts list (adjust based on API structure)
+	time_list = response.get("value");
+	// Most APIs return {"data": [...] }
+	// Step 3: validate list
+	if(time_list != null)
+	{
+		for each  time in time_list
+		{
+			startDate = ifnull(time.get("StartDate"),"");
+			formattedStart = startDate.replaceAll("T"," ").remove("Z");
+			EndDate = ifnull(time.get("StartDate"),"");
+			formattedEnd = EndDate.replaceAll("T"," ").remove("Z");
+			// Step 4: Insert each contact
+			insert into Timesheets
+			[
+				Added_User=zoho.loginuser
+				Timesheet_Key=time.get("TimesheetKey")
+				Start_Date=formattedStart
+				End_Date=formattedEnd
+				User_Key=time.get("UserKey")
+				Status=time.get("Status")
+				Work_Item_Keys=time.get("WorkItemKeys")
+			]
+		}
+	}
+}
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+4. //Users
+void Endpoints.User_data()
+{
+	karbon_access_key = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJLYXJib25IUSIsInJlZyI6InVrMiIsInRhayI6IkY5Q0Q2MTAwLTdCMUQtNEMyQi05QUVFLTkxRDIwREVDQTc4MSIsImlhdCI6MTY5ODMwMDU3MS4wfQ.uHUB0yis8KdVrA14FYNI1v4SEDdZMyAuE2CUbV-IYD0";
+	karbon_token = "ac32db76-8f09-4429-a5a9-9947f891baa8";
+	karbon_base_url = "https://api.karbonhq.com/v3/";
+	response = invokeurl
+	[
+		url :karbon_base_url + "Users"
+		type :GET
+		headers:{"Accept":"application/json","Content-Type":"application/json","accessKey":karbon_access_key,"Authorization":"Bearer " + karbon_token}
+	];
+	// Store response
+	if(response != null)
+	{
+		insert into userResponse
+		[
+			Added_User=zoho.loginuser
+			userResponseAll=response
+		]
+	}
+	// Extract Users list
+	if(response != null && response.get("value") != null)
+	{
+		user_list = response.get("value");
+		for each  Us in user_list
+		{
+			insert into Users
+			[
+				Added_User=zoho.loginuser
+				Name.first_name=Us.get("Name")
+				Email=Us.get("EmailAddress")
+				UserId=Us.get("Id")
+			]
+		}
+	}
+	else
+	{
+		info "No users found or missing 'value' key.";
+	}
+}
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+5. //WorkItems
+
+void Endpoints.WorkItems_data()
+{
+	karbon_access_key = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJLYXJib25IUSIsInJlZyI6InVrMiIsInRhayI6IkY5Q0Q2MTAwLTdCMUQtNEMyQi05QUVFLTkxRDIwREVDQTc4MSIsImlhdCI6MTY5ODMwMDU3MS4wfQ.uHUB0yis8KdVrA14FYNI1v4SEDdZMyAuE2CUbV-IYD0";
+	karbon_token = "ac32db76-8f09-4429-a5a9-9947f891baa8";
+	karbon_base_url = "https://api.karbonhq.com/v3/";
+	// Fetch WorkItems from Karbon
+	response = invokeurl
+	[
+		url :karbon_base_url + "WorkItems"
+		type :GET
+		headers:{"Accept":"application/json","Content-Type":"application/json","accessKey":karbon_access_key,"Authorization":"Bearer " + karbon_token}
+	];
+	// Store raw response
+	if(response != null)
+	{
+		insert into WorkItemResponse
+		[
+			Added_User=zoho.loginuser
+			Response=response
+		]
+	}
+	// Map WorkItems to Zoho Creator form
+	if(response != null && response.get("value") != null)
+	{
+		workitem_list = response.get("value");
+		// list of WorkItems
+		for each  wi in workitem_list
+		{
+			// Convert ISO 8601 string to Zoho DateTime
+			Start_Date = if(wi.get("StartDate") != null,wi.get("StartDate").replaceAll("T"," ").replaceAll("Z","").toDateTime(),null);
+			Due_Date = if(wi.get("DueDate") != null,wi.get("DueDate").replaceAll("T"," ").replaceAll("Z","").toDateTime(),null);
+			Completed_Date = if(wi.get("CompletedDate") != null,wi.get("CompletedDate").replaceAll("T"," ").replaceAll("Z","").toDateTime(),null);
+			To_Do_Period = if(wi.get("ToDoPeriod") != null,wi.get("ToDoPeriod").replaceAll("T"," ").replaceAll("Z","").toDateTime(),null);
+			// Insert into WorkItems form
+			insert into WorkItems
+			[
+				Added_User=zoho.loginuser
+				Work_Item_Key=ifnull(wi.get("WorkItemKey"),"")
+				Assignee_Name.first_name=wi.get("AssigneeName")
+				Assignee_Email_Address=wi.get("AssigneeEmailAddress")
+				Assignee_Key=wi.get("AssigneeKey")
+				Title=wi.get("Title")
+				Client_Key=wi.get("ClientKey")
+				Client_Name.first_name=wi.get("ClientName")
+				Client_Type=wi.get("ClientType")
+				Start_Date=Start_Date
+				Due_Date=Due_Date
+				Completed_Date=Completed_Date
+				To_Do_Period=To_Do_Period
+				Work_Type=wi.get("WorkType")
+				Work_Status=wi.get("WorkStatus")
+				Primary_Status=wi.get("PrimaryStatus")
+				Secondary_Status=wi.get("SecondaryStatus")
+				Work_Template_Key=wi.get("WorkTemplateKey")
+				Work_Template_Tile=wi.get("WorkTemplateTile")
+				Work_Schedule_Key=wi.get("WorkScheduleKey")
+				Estimated_Budget=wi.get("EstimatedBudget")
+				data_type=wi.get("@odata.type")
+				Client_User_Defined_Identifier=wi.get("ClientUserDefinedIdentifier")
+				Related_Client_Group_Key=wi.get("RelatedClientGroupKey")
+				Related_Client_Group_Name=wi.get("RelatedClientGroupName")
+				Deadline_Date=wi.get("DeadlineDate")
+				Client_Group_Key=wi.get("ClientGroupKey")
+			]
+		}
+	}
+	else
+	{
+		info "No WorkItems found or missing 'value' key.";
+	}
+}
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+6. //WorkTemplates
+
+void Endpoints.WorkTemplate_data()
+{
+	// ----------------------------
+	// Step 0: API Credentials
+	// ----------------------------
+	karbon_access_key = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJLYXJib25IUSIsInJlZyI6InVrMiIsInRhayI6IkY5Q0Q2MTAwLTdCMUQtNEMyQi05QUVFLTkxRDIwREVDQTc4MSIsImlhdCI6MTY5ODMwMDU3MS4wfQ.uHUB0yis8KdVrA14FYNI1v4SEDdZMyAuE2CUbV-IYD0";
+	karbon_token = "ac32db76-8f09-4429-a5a9-9947f891baa8";
+	karbon_base_url = "https://api.karbonhq.com/v3/";
+	// ----------------------------
+	// Step 1: API CALL
+	// ----------------------------
+	response = invokeurl
+	[
+		url :karbon_base_url + "WorkTemplates"
+		type :GET
+		headers:{"Accept":"application/json","Content-Type":"application/json","accessKey":karbon_access_key,"Authorization":"Bearer " + karbon_token}
+	];
+	// ----------------------------
+	// Step 2: Store API response
+	// ----------------------------
+	insert into work_template_response
+	[
+		Added_User=zoho.loginuser
+		Work_temp_Response=response.toString()
+	]
+	// ----------------------------
+	// Step 3: Extract WorkTemplates list
+	// ----------------------------
+	work_list = response.get("value");
+	if(work_list != null)
+	{
+		for each  work in work_list
+		{
+			published_dt = null;
+			lastCreated_dt = null;
+			modified_dt = null;
+			published_raw = ifnull(work.get("PublishedDate"),"");
+			if(published_raw != "")
+			{
+				published_dt = published_raw.replaceAll("T"," ").remove("Z").toDateTime("yyyy-MM-dd HH:mm:ss");
+			}
+			lastCreated_raw = ifnull(work.get("DateLastWorkItemCreated"),"");
+			if(lastCreated_raw != "")
+			{
+				lastCreated_dt = lastCreated_raw.replaceAll("T"," ").remove("Z").toDateTime("yyyy-MM-dd HH:mm:ss");
+			}
+			modified_raw = ifnull(work.get("DateModified"),"");
+			if(modified_raw != "")
+			{
+				modified_dt = modified_raw.replaceAll("T"," ").remove("Z").toDateTime("yyyy-MM-dd HH:mm:ss");
+			}
+			// ----------------------------
+			// Step 4: Prepare Subform Rows
+			// ----------------------------
+			actorList = work.get("ActorRoles");
+			rows = Collection();
+			// Create subform rows collection
+			if(actorList != null)
+			{
+				for each  ar in actorList
+				{
+					name_value = ifnull(ar.get("ActorName"),"");
+					key_value = ifnull(ar.get("ActorKey"),"");
+					// Only add row if there is a value
+					if(name_value != "" || key_value != "")
+					{
+						row1 = Work_Templates.actorRoles();
+						// Create subform row object
+						row1.Actor_Name=name_value;
+						// Must match subform field API name
+						row1.Actor_Key=key_value;
+						// Must match subform field API name
+						rows.insert(row1);
+					}
+				}
+			}
+			// ----------------------------
+			// Step 5: Insert Record Into Main Form
+			// ----------------------------
+			insert into Work_Templates
+			[
+				actorRoles=rows
+				Added_User=zoho.loginuser
+				Work_Template_Key=ifnull(work.get("WorkTemplateKey"),"")
+				Title=ifnull(work.get("Title"),"")
+				Description=ifnull(work.get("Description"),"")
+				Work_Type_Key=ifnull(work.get("WorkTypeKey"),"")
+				HasScheduledClientTaskGroups=ifnull(work.get("HasScheduledClientTaskGroups"),"")
+				Estimated_Budget=ifnull(work.get("EstimatedBudget"),0)
+				Estimated_Time=ifnull(work.get("EstimatedTime"),0)
+				Draft_Has_Changes=ifnull(work.get("DraftHasChanges"),"")
+				Published_Date=published_dt
+				Date_Last_WorkItem_Created=lastCreated_dt
+				Number_Of_WorkItems_Created=ifnull(work.get("NumberOfWorkItemsCreated"),0)
+				Date_Modified=modified_dt
+			]
+		}
+	}
+}
