@@ -1,0 +1,124 @@
+void ZCreator.New_push_data_creator_into_people(string empId)
+{
+	// STEP 1: Get Employee Details from Zoho People
+	apiUrlEmp = "https://people.zoho.com/people/api/forms/P_EmployeeView/records?searchColumn=EMPLOYEEID&searchValue=" + empId;
+	responseEmp = invokeurl
+	[
+		url :apiUrlEmp
+		type :GET
+		connection:"zoho_people_connection1"
+	];
+	recordId = "";
+	emailAddress = "";
+	for each  rec in responseEmp
+	{
+		recordId = rec.get("recordId");
+		emailAddress = rec.get("Email address");
+	}
+	// STEP 2: Fetch Attendance Entries from Creator
+	creatorResponse = Attendance_Entries[EmployeeId == empId];
+	entryExitData = Map();
+	// Map with date as key
+	for each  recordatt in creatorResponse
+	{
+		DeviceSerialNumber = recordatt.DeviceSerialNumber;
+		VerifyTime1 = recordatt.VerifyTime12;
+		dateStr = VerifyTime1.toString("yyyy-MM-dd");
+		dateMap = entryExitData.get(dateStr);
+		if(dateMap == null)
+		{
+			dateMap = Map();
+			dateMap.put("checkInList",list());
+			dateMap.put("checkOutList",list());
+		}
+		// Retrieve the list
+		checkInList = dateMap.get("checkInList");
+		checkOutList = dateMap.get("checkOutList");
+		// Add the current punch
+		if(DeviceSerialNumber == "CQUG231260269")
+		{
+			checkInList.add(VerifyTime1);
+		}
+		else if(DeviceSerialNumber == "SYZ8241001698")
+		{
+			checkOutList.add(VerifyTime1);
+		}
+		// Put the updated lists back into the map
+		dateMap.put("checkInList",checkInList);
+		dateMap.put("checkOutList",checkOutList);
+		// Put the dateMap back into entryExitData
+		entryExitData.put(dateStr,dateMap);
+	}
+	// STEP 3: Prepare Records List with duplicate handling
+	allDates = entryExitData.keys().sort();
+	recordsList = List();
+	for each  dateKey in allDates
+	{
+		recordData = Map();
+		recordData.put("empId",empId);
+		dateMap = entryExitData.get(dateKey);
+		checkInList = dateMap.get("checkInList");
+		checkOutList = dateMap.get("checkOutList");
+		// Earliest Check-in
+		if(checkInList != null && checkInList.size() > 0)
+		{
+			checkInList.sort();
+			// sorts in ascending order
+			earliestCheckIn = checkInList.get(0);
+			// first element is earliest
+			recordData.put("checkIn",earliestCheckIn.toString("yyyy-MM-dd HH:mm:ss"));
+		}
+		// Latest Check-out
+		if(checkOutList != null && checkOutList.size() > 0)
+		{
+			checkOutList.sort();
+			// sorts ascending
+			latestCheckOut = checkOutList.get(checkOutList.size() - 1);
+			// last element is latest
+			recordData.put("checkOut",latestCheckOut.toString("yyyy-MM-dd HH:mm:ss"));
+		}
+		recordsList.add(recordData);
+	}
+	// STEP 4: Split into 31-day batches
+	batches = List();
+	currentBatch = List();
+	firstDateInBatch = null;
+	for each  dateKey in allDates
+	{
+		currentDate = dateKey.toDate("yyyy-MM-dd");
+		if(firstDateInBatch == null)
+		{
+			firstDateInBatch = currentDate;
+		}
+		diffDays = currentDate.getDayOfYear() - firstDateInBatch.getDayOfYear() + (currentDate.getYear() - firstDateInBatch.getYear()) * 365;
+		if(diffDays >= 31)
+		{
+			batches.add(currentBatch);
+			currentBatch = List();
+			firstDateInBatch = currentDate;
+		}
+		// Add recordData corresponding to dateKey
+		recordData = recordsList.get(allDates.indexOf(dateKey));
+		currentBatch.add(recordData);
+	}
+	if(currentBatch.size() > 0)
+	{
+		batches.add(currentBatch);
+		// Add last batch
+	}
+	// STEP 5: Send each batch to Zoho People
+	for each  batch in batches
+	{
+		paramMap = Map();
+		paramMap.put("data",batch);
+		paramMap.put("dateFormat","yyyy-MM-dd HH:mm:ss");
+		createResponse = invokeurl
+		[
+			url :"https://people.zoho.com/people/api/attendance/bulkImport"
+			type :POST
+			parameters:paramMap
+			connection:"zoho_people_connection1"
+		];
+		info "Bulk Import Response for batch: " + createResponse;
+	}
+}
