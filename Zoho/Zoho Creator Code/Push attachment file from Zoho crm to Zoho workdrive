@@ -1,0 +1,71 @@
+void automation.uploadAttachmentsToWorkDrive(Int id)
+{
+// Step 1: Get Lead Details
+lead = zoho.crm.getRecordById("Leads",id.toLong());
+customerName = lead.get("Full_Name");
+// Change field if needed
+if(customerName == null || customerName == "")
+{
+	info "Customer name is empty. Cannot create folder.";
+	return;
+}
+parentFolderId = "vok9198bab49bf59748f1beb701fc5111d171";
+// Root folder in WorkDrive
+folderId = lead.get("WorkDrive_Folder_ID");
+// Custom field in CRM to store folder ID
+// Step 2: Create folder if it doesn't exist
+if(folderId == null || folderId == "")
+{
+	try 
+	{
+		folderResp = zoho.workdrive.createFolder(customerName,parentFolderId,"upload_attachment_into_drive");
+		folderId = folderResp.get("data").get("id");
+		// Save folder ID in CRM record
+		updateMap = Map();
+		updateMap.put("WorkDrive_Folder_ID",folderId);
+		zoho.crm.updateRecord("Leads",id.toLong(),updateMap);
+		info "Folder created and ID saved: " + folderId;
+	}
+	catch (e)
+	{
+		info "Folder creation failed. Using parent folder: " + parentFolderId;
+		folderId = parentFolderId;
+	}
+}
+else
+{
+	info "Using existing folder: " + folderId;
+}
+// Step 3: Get all related attachments
+attachments = zoho.crm.getRelatedRecords("Attachments","Leads",id.toLong());
+if(attachments == null || attachments.size() == 0)
+{
+	info "No attachments found for this record.";
+	return;
+}
+uploadedFileNames = List();
+// Track filenames uploaded in this run
+// Step 4: Loop through attachments and upload
+for each  att in attachments
+{
+	attachmentId = att.get("id");
+	fileName = att.get("File_Name");
+	if(uploadedFileNames.contains(fileName))
+	{
+		info "Skipping duplicate file in this run: " + fileName;
+		continue;
+	}
+	uploadedFileNames.add(fileName);
+	// Download file from CRM
+	downloadFile = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2/Leads/" + id + "/Attachments/" + attachmentId
+		type :GET
+		connection:"attachment_crm"
+	];
+	// Upload to WorkDrive folder
+	uploadResp = zoho.workdrive.uploadFile(downloadFile,folderId,fileName,false,"upload_attachment_into_drive");
+	info "Uploaded to WorkDrive folder '" + customerName + "': " + fileName;
+}
+info "All attachments processed for Lead: " + customerName;
+}
