@@ -1,0 +1,59 @@
+portalId = "857276035";
+projectID = "2327626000001160021";
+urlBase = "https://projectsapi.zoho.com/api/v3/portal/" + portalId + "/projects/" + projectID + "/tasks";
+// Fetch Tasks from Zoho Projects
+response = invokeurl
+[
+	url :urlBase
+	type :GET
+	connection:"projects"
+];
+taskList = response.get("tasks");
+info "taskList: " + taskList;
+for each  task in taskList
+{
+	taskId = task.get("id");
+	taskName = task.get("task_levels");
+	deal_id = task.get("deal_id");
+	nameofTask = task.get("name");
+	// this is the CRM Deal ID
+	status = task.get("status").get("name");
+	projectName = task.get("project");
+	if(projectName != null)
+	{
+		nameOpp = projectName.get("name");
+	}
+	else
+	{
+		nameOpp = "";
+	}
+	taskLevels = task.get("task_levels");
+	// Usually a list
+	taskLevel = "";
+	completeDate = task.get("completed_on");
+	formattedDate = "";
+	if(completeDate != null)
+	{
+		formattedDate = completeDate.toTime("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").toString("yyyy-MM-dd");
+	}
+	info "Task ID: " + taskId;
+	info "Deal ID: " + deal_id;
+	info "Task Level: " + taskLevel;
+	info "Status: " + status;
+	// 	info  + nameOpp;
+	info "End Date: " + formattedDate;
+	// Only sync Level  Tasks that are Completed/Closed AND linked to a CRM deal
+	if(deal_id != null && (taskLevel == "Level 3" || taskLevel == "Level 2" || taskLevel || "Level 1") && (status == "Completed" || status == "Closed"))
+	{
+		updateMap = Map();
+		updateMap.put("Task",taskName);
+		updateMap.put("Zoho_Project_IDs",taskId);
+		updateMap.put("Deal_Name",nameofTask);
+		updateMap.put("Closing_Date",formattedDate);
+		// 		updateMap.put("Account_Name", "ABC");
+		// Update the Deal record in CRM
+		crmResp = zoho.crm.updateRecord("Deals",deal_id.toLong(),updateMap);
+		info "Updated Deal ID: " + deal_id + " with Task: " + taskName;
+	}
+}
+return "Completed Level  tasks synced successfully!";
