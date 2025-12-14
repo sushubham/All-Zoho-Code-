@@ -1,0 +1,77 @@
+string button.file_upload(String id)
+{
+// =========================
+// STEP 1: Get Lead Details
+// =========================
+leadId = id;
+lead = zoho.crm.getRecordById("Leads",leadId);
+if(lead == null)
+{
+	return "Lead not found.";
+}
+customerName = lead.get("Full_Name");
+// ✅ defined
+folderId = lead.get("WorkDrive_Folder_ID");
+// ✅ defined
+info lead;
+if(customerName == null || customerName == "")
+{
+	return "Customer name is empty.";
+}
+// =========================================
+// STEP 2: Create WorkDrive Folder (ONCE)
+// =========================================
+if(folderId == null || folderId == "")
+{
+	try 
+	{
+		folderResp = zoho.workdrive.createFolder(customerName,"vok9198bab49bf59748f1beb701fc5111d171","upload_attachment_into_drive");
+		folderId = folderResp.get("data").get("id");
+		// Save folder ID in Lead
+		updateMap = Map();
+		updateMap.put("WorkDrive_Folder_ID",folderId);
+		zoho.crm.updateRecord("Leads",leadId,updateMap);
+	}
+	catch (e)
+	{
+		return "Failed to create WorkDrive folder.";
+	}
+}
+// ==================================
+// STEP 3: Fetch Lead Attachments
+// ==================================
+attachments = zoho.crm.getRelatedRecords("Attachments","Leads",leadId);
+if(attachments == null || attachments.isEmpty())
+{
+	return "No attachments found for this Lead.";
+}
+uploadedNames = List();
+uploadCount = 0;
+// ==================================
+// STEP 4: Upload Attachments
+// ==================================
+for each  att in attachments
+{
+	attachmentId = att.get("id");
+	fileName = att.get("File_Name");
+	if(uploadedNames.contains(fileName))
+	{
+		continue;
+	}
+	uploadedNames.add(fileName);
+	// Download attachment
+	fileObj = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2/Leads/" + leadId + "/Attachments/" + attachmentId
+		type :GET
+		connection:"attachment_crm"
+	];
+	// Upload to WorkDrive
+	zoho.workdrive.uploadFile(fileObj,folderId,fileName,false,"upload_attachment_into_drive");
+	uploadCount = uploadCount + 1;
+}
+// =========================
+// STEP 5: Return Message
+// =========================
+return uploadCount + " attachment(s) synced to WorkDrive successfully.";
+}
