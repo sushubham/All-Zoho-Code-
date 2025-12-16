@@ -1,67 +1,62 @@
-void automation.file_upload(Int id)
+// STEP 1: Get Lead Details
+leadId = id;
+lead = zoho.crm.getRecordById("Leads",leadId);
+if(lead == null)
 {
-    // Step 1: Get Lead Details
-    lead = zoho.crm.getRecordById("Leads", id.toLong());
-    customerName = lead.get("Full_Name");  // Change field if needed
-    if(customerName == null || customerName == "")
-    {
-        info "Customer name is empty. Cannot create folder.";
-        return;
-    }
-
-    folderId = "";  // Will store the folder ID
-
-    // Step 2: Try creating folder in WorkDrive
-    try
-    {
-        folderResp = zoho.workdrive.createFolder(customerName, "vok9198bab49bf59748f1beb701fc5111d171", "upload_attachment_into_drive");
-        folderId = folderResp.get("data").get("id");
-        info "Folder created: " + customerName;
-    }
-    catch (e)
-    {
-        // If folder already exists, creation will throw an error
-        info "Folder already exists or creation failed, using root folder: " + "vok9198bab49bf59748f1beb701fc5111d171";
-        folderId = "vok9198bab49bf59748f1beb701fc5111d171";
-    }
-
-    // Step 3: Get related attachments
-    relatedrecords = zoho.crm.getRelatedRecords("Attachments","Leads",id.toLong());
-    info relatedrecords;
-
-    uploadedFileNames = List();   // Track unique filenames
-
-    for each ele in relatedrecords
-    {
-        attachmentId = ele.get("id");
-        fileName = ele.get("File_Name");
-
-        // Skip if this file name already processed
-        if(uploadedFileNames.contains(fileName))
-        {
-            info "Skipping duplicate file: " + fileName;
-            continue;
-        }
-
-        uploadedFileNames.add(fileName);
-
-        // Download file
-        downloadFile = invokeurl
-        [
-            url :"https://www.zohoapis.com/crm/v2/Leads/" + id + "/Attachments/" + attachmentId
-            type :GET
-            connection:"attachment_crm"
-        ];
-
-        // Upload to WorkDrive inside the folder
-        resp3 = zoho.workdrive.uploadFile(
-                    downloadFile,
-                    folderId,
-                    fileName,
-                    false,
-                    "upload_attachment_into_drive"
-                );
-
-        info "Uploaded to WorkDrive folder '" + customerName + "': " + fileName;
-    }
+	return "Lead not found";
 }
+customerName = lead.get("Full_Name");
+folderId = lead.get("WorkDrive_Folder_ID");
+info lead;
+if(customerName == null || customerName == "")
+{
+	return "Customer name is empty.";
+}
+// STEP 2: Create WorkDrive Folder 
+if(folderId == null || folderId == "")
+{
+	try 
+	{
+		folderResp = zoho.workdrive.createFolder(customerName,"hh0w743485c3e32384456a5c0a046e36b4e9d","workdrive_connection");
+		folderId = folderResp.get("data").get("id");
+		// Save folder ID in Lead
+		updateMap = Map();
+		updateMap.put("WorkDrive_Folder_ID",folderId);
+		zoho.crm.updateRecord("Leads",leadId,updateMap);
+	}
+	catch (e)
+	{
+		return "Failed to create WorkDrive folder.";
+	}
+}
+// STEP 3: Fetch Lead Attachments
+attachments = zoho.crm.getRelatedRecords("Attachments","Leads",leadId);
+if(attachments == null || attachments.isEmpty())
+{
+	return "No attachments found for this Lead.";
+}
+uploadedNames = List();
+uploadCount = 0;
+// STEP 4: Upload Attachments
+for each  att in attachments
+{
+	attachmentId = att.get("id");
+	fileName = att.get("File_Name");
+	if(uploadedNames.contains(fileName))
+	{
+		continue;
+	}
+	uploadedNames.add(fileName);
+	// Download attachment
+	fileObj = invokeurl
+	[
+		url :"https://www.zohoapis.com/crm/v2/Leads/" + leadId + "/Attachments/" + attachmentId
+		type :GET
+		connection:"attachment_crm"
+	];
+	// Upload to WorkDrive
+	zoho.workdrive.uploadFile(fileObj,folderId,fileName,false,"workdrive_connection");
+	uploadCount = uploadCount + 1;
+}
+// STEP 5: Return Message
+return uploadCount + " attachment(s) synced to WorkDrive successfully.";
