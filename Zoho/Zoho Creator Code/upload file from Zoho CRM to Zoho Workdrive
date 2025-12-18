@@ -1,0 +1,33 @@
+void automation.passport_file_upload(Int id)
+{
+resp = zoho.crm.getRecordById("Contacts",id);
+info resp;
+passport = resp.get("Passport");
+fullName = resp.get("Full_Name");
+params = Map();
+if(passport != null)
+{
+	for each  rec in passport
+	{
+		fileName = rec.get("file_Name");
+		fileId = rec.get("file_Id");
+		parentFolderId = "e4mid1c4539cf5eb044219a523e805b483265";
+		// 🔹 Create folder (Contact / File based)
+		folderResp = zoho.workdrive.createFolder(fullName,parentFolderId,"workdrive_connection");
+		// 🔹 Extract newly created folder ID
+		newFolderId = folderResp.get("data").get("id");
+		// 🔹 Download file from CRM
+		fileResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2/files?id=" + fileId
+			type :GET
+			connection:"attachment_crm"
+		];
+		// 🔹 Upload file inside newly created folder
+		uploadResp = zoho.workdrive.uploadFile(fileResp,newFolderId,fileName,false,"workdrive_connection");
+		info uploadResp;
+		params.put("Folder_Id",newFolderId);
+		mpp = zoho.crm.updateRecord("Contacts",id,params);
+	}
+}
+}
