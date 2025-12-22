@@ -1,0 +1,81 @@
+string button.file_upload(String leadId)
+{
+// ===============================
+// STEP 1: Get Lead
+// ===============================
+lead = zoho.crm.getRecordById("Leads",leadId);
+if(lead == null)
+{
+	return "Lead not found";
+}
+fullName = lead.get("Full_Name");
+folderId = lead.get("WorkDrive_Folder_ID");
+// WorkDrive parent folder (already exists)
+parentFolderId = "hh0w743485c3e32384456a5c0a046e36b4e9d";
+// ===============================
+// STEP 2: Create Folder (if not exists)
+// ===============================
+if(folderId == null || folderId == "")
+{
+	folderResp = zoho.workdrive.createFolder(fullName,parentFolderId,"workdrive_connection");
+	if(folderResp.get("data") == null)
+	{
+		return "Folder creation failed";
+	}
+	folderId = folderResp.get("data").get("id");
+	updateMap = Map();
+	updateMap.put("WorkDrive_Folder_ID",folderId);
+	zoho.crm.updateRecord("Leads",leadId,updateMap);
+}
+// ===============================
+// STEP 3: Upload Passport Field Files
+// ===============================
+passportFiles = lead.get("Passport");
+if(passportFiles != null)
+{
+	for each  rec in passportFiles
+	{
+		fileId = rec.get("file_Id");
+		// Download file from CRM
+		fileResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2/files?id=" + fileId
+			type :GET
+			connection:"attachment_crm"
+		];
+		// Upload to WorkDrive (REST API)
+		uploadResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/workdrive/api/v1/upload?parent_id=" + folderId
+			type :POST
+			files:fileResp
+			connection:"workdrive_connection"
+		];
+	}
+}
+// ===============================
+// STEP 4: Upload Lead Attachments
+// ===============================
+attachments = zoho.crm.getRelatedRecords("Attachments","Leads",leadId);
+if(attachments != null)
+{
+	for each  att in attachments
+	{
+		attachmentId = att.get("id");
+		fileResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2/Leads/" + leadId + "/Attachments/" + attachmentId
+			type :GET
+			connection:"attachment_crm"
+		];
+		uploadResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/workdrive/api/v1/upload?parent_id=" + folderId
+			type :POST
+			files:fileResp
+			connection:"workdrive_connection"
+		];
+	}
+}
+return "Passport files and Attachments uploaded successfully";
+}
