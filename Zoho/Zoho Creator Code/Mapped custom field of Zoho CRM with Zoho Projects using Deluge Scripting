@@ -1,0 +1,90 @@
+string button.sending_deal_to_projects2(String id)
+{
+dealId = id;
+dealResp = zoho.crm.getRecordById("Deals",dealId);
+dealName = dealResp.get("Deal_Name");
+phoneNumber = dealResp.get("Phone_Number");
+emailAddress = dealResp.get("Email_Address");
+contactName = "";
+if(dealResp.get("Contact_Name") != null)
+{
+	contactName = dealResp.get("Contact_Name").get("name");
+}
+companyName = "";
+if(dealResp.get("Account_Name") != null)
+{
+	companyName = dealResp.get("Account_Name").get("name");
+}
+projectId = dealResp.get("Zoho_Project_IDs");
+portalId = "857276035";
+baseUrl = "https://projectsapi.zoho.com/api/v3/portal/" + portalId + "/projects";
+if(projectId != null && projectId != "")
+{
+	projectMap = Map();
+	projectMap.put("name",dealName);
+	projectMap.put("company_name",companyName);
+	projectMap.put("phone_number",phoneNumber);
+	projectMap.put("email_address",emailAddress);
+	projectMap.put("contact_name",contactName);
+	updateResp = invokeurl
+	[
+		url :baseUrl + "/" + projectId
+		type :PATCH
+		body:projectMap.toString()
+		headers:{"Content-Type":"application/json"}
+		connection:"test12"
+	];
+	info updateResp;
+	return "Existing Zoho Project updated successfully";
+}
+createResponse = invokeurl
+[
+	url :baseUrl
+	type :GET
+	headers:{"Content-Type":"application/json"}
+	connection:"test12"
+];
+info createResponse;
+projectsList = createResponse;
+exactProjectId = "";
+for each  project in projectsList
+{
+	if(project.get("name") == dealName)
+	{
+		exactProjectId = project.get("id");
+		break;
+	}
+}
+if(exactProjectId != "")
+{
+	updateMap = Map();
+	updateMap.put("Zoho_Project_IDs",exactProjectId);
+	updateResp = zoho.crm.updateRecord("Deals",dealId,updateMap);
+	info updateResp;
+	return "Existing Zoho Project found and mapped to Deal";
+}
+projectMap = Map();
+projectMap.put("deal_id",dealId);
+projectMap.put("name",dealName);
+projectMap.put("email_address",emailAddress);
+projectMap.put("contact_name",contactName);
+projectMap.put("phone_number",phoneNumber);
+projectMap.put("company_name",companyName);
+createResp = invokeurl
+[
+	url :baseUrl
+	type :POST
+	body:projectMap.toString()
+	headers:{"Content-Type":"application/json"}
+	connection:"test12"
+];
+info createResp;
+// Extract newly created project ID
+newProjectId = createResp.get("id");
+// Save new Project ID to CRM
+updateMap = Map();
+updateMap.put("Zoho_Project_IDs",newProjectId);
+updateDealResp = zoho.crm.updateRecord("Deals",dealId,updateMap);
+info updateDealResp;
+return "";
+}
