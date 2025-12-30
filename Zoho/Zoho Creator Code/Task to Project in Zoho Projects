@@ -1,0 +1,55 @@
+portalID = "857276035";
+// Get all projects
+taskUrl = "https://projectsapi.zoho.com/api/v3/portal/" + portalID + "/projects";
+projRespID = invokeurl
+[
+    url :taskUrl
+    type :GET
+    connection:"projects"
+];
+
+// Loop through each project
+for each project in projRespID
+{
+    projectID = project.get("id");
+
+    // Get tasks for this project
+    taskUrl = "https://projectsapi.zoho.com/api/v3/portal/" + portalID + "/projects/" + projectID + "/tasks";
+    taskResp = invokeurl
+    [
+        url :taskUrl
+        type :GET
+        connection:"projects"
+    ];
+
+    tasksList = taskResp.get("tasks");
+    nextTaskName = "";
+
+    // Find first open task
+    for each t in tasksList
+    {
+        statusMap = t.get("status");
+        statusName = statusMap.get("name");
+        if(statusName != "Closed")
+        {
+            nextTaskName = t.get("name");
+            break;
+        }
+    }
+    // Update project next_task if there is an open task
+    if(nextTaskName != "")
+    {
+        updateMap = Map();
+        updateMap.put("next_task", nextTaskName);
+        projectUrl = "https://projectsapi.zoho.com/api/v3/portal/" + portalID + "/projects/" + projectID;
+        updateResp = invokeurl
+        [
+            url :projectUrl
+            type :PATCH
+            parameters:updateMap.toString()
+            connection:"projects"
+        ];
+        info "Project ID: " + projectID + " updated with next task: " + nextTaskName;
+    }
+}
+return "success";
