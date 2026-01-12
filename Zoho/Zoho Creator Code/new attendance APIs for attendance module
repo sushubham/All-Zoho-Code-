@@ -1,0 +1,121 @@
+void ZCreator.New_push_data_creator_into_people(string empCode)
+{
+	// STEP 1: Fetch Attendance Entries from Creator
+	creatorResponse = Attendance_Entries[EmployeeId == empCode];
+	entryExitData = Map();
+
+	for each recordatt in creatorResponse
+	{
+		device = recordatt.DeviceSerialNumber;
+		verifyTime = recordatt.VerifyTime12;
+		dateStr = verifyTime.toString("yyyy-MM-dd");
+
+		dateMap = entryExitData.get(dateStr);
+		if(dateMap == null)
+		{
+			dateMap = Map();
+			dateMap.put("checkInList", list());
+			dateMap.put("checkOutList", list());
+		}
+
+		checkInList = dateMap.get("checkInList");
+		checkOutList = dateMap.get("checkOutList");
+
+		if(device == "CQUG231260269") // Check-In
+		{
+			checkInList.add(verifyTime);
+		}
+		else if(device == "SYZ8241001698") // Check-Out
+		{
+			checkOutList.add(verifyTime);
+		}
+
+		dateMap.put("checkInList", checkInList);
+		dateMap.put("checkOutList", checkOutList);
+		entryExitData.put(dateStr, dateMap);
+	}
+
+	// STEP 2: Prepare payload per day
+	allDatesList = entryExitData.keys().sort();
+	payloadByDate = List();
+
+	for each dateKey in allDatesList
+	{
+		dateMap = entryExitData.get(dateKey);
+		checkInList = dateMap.get("checkInList");
+		checkOutList = dateMap.get("checkOutList");
+
+		// Earliest Check-In
+		if(checkInList != null && checkInList.size() > 0)
+		{
+			checkInList.sort();
+			earliestCheckIn = checkInList.get(0);
+			checkInMap = Map();
+			checkInMap.put("empId", empCode);
+			checkInMap.put("checkIn", earliestCheckIn.toString("yyyy-MM-dd HH:mm:ss"));
+			payloadByDate.add({"date": dateKey, "data": checkInMap});
+		}
+
+		// Latest Check-Out
+		if(checkOutList != null && checkOutList.size() > 0)
+		{
+			checkOutList.sort();
+			latestCheckOut = checkOutList.get(checkOutList.size() - 1);
+			checkOutMap = Map();
+			checkOutMap.put("empId", empCode);
+			checkOutMap.put("checkOut", latestCheckOut.toString("yyyy-MM-dd HH:mm:ss"));
+			payloadByDate.add({"date": dateKey, "data": checkOutMap});
+		}
+	}
+
+	// STEP 3: Split into 31-day batches
+	batches = List();
+	currentBatch = List();
+	firstDateInBatch = null;
+
+	for each dayMap in payloadByDate
+	{
+		currentDate = dayMap.get("date").toDate("yyyy-MM-dd");
+
+		if(firstDateInBatch == null)
+		{
+			firstDateInBatch = currentDate;
+		}
+
+		// Days difference
+		diffDays = currentDate.getDayOfYear() - firstDateInBatch.getDayOfYear()
+			+ (currentDate.getYear() - firstDateInBatch.getYear()) * 365;
+
+		if(diffDays >= 31)
+		{
+			batches.add(currentBatch);
+			currentBatch = List();
+			firstDateInBatch = currentDate;
+		}
+
+		currentBatch.add(dayMap.get("data"));
+	}
+
+	if(currentBatch.size() > 0)
+	{
+		batches.add(currentBatch);
+	}
+
+	// STEP 4: Send each batch to Zoho People
+	for each batch in batches
+	{
+		paramMap = Map();
+		paramMap.put("data", batch);
+		paramMap.put("dateFormat", "yyyy-MM-dd HH:mm:ss");
+
+		createResponse = invokeUrl
+		[
+			url: "https://people.zoho.com/people/api/attendance/bulkImport"
+			type: POST
+			parameters: paramMap
+			connection: "zoho_people_connection1"
+		];
+
+		info "Bulk Import Response: " + createResponse;
+	}
+}
