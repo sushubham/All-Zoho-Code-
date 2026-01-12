@@ -1,0 +1,110 @@
+void function_for_writer(int id)
+{
+	// Step 1: Fetch record from Zoho Creator 
+	creatorAppLinkName = "demo2aaconsultancy";
+	creatorFormLinkName = "e-sign";
+	creatorReportLinkName = "e_Sign_form_Report";
+	creatorConnection = "zoho_creator_connection_for_sign";
+
+	recordId = id;
+
+	dataResp = zoho.creator.getRecordById(
+		creatorAppLinkName,
+		creatorFormLinkName,
+		creatorReportLinkName,
+		recordId,
+		"zoho_creator_connection_for_sign"
+	);
+
+	response = dataResp.get("data");
+	info "Creator Record:";
+	info response;
+
+	// Step 2: Prepare merge map for Writer
+	mergeDataMap = Map();
+	mergeDataMap.put("4647122000000593353", response.get("Invoice"));
+	mergeDataMap.put("4647122000000593310", response.get("Customer_Name"));
+	mergeDataMap.put("4647122000000593421", response.get("Due_Date"));
+	mergeDataMap.put("4647122000000593369", response.get("Invoice_Date"));
+	mergeDataMap.put("4647122000000593646", response.get("Customer_Notes"));
+	mergeDataMap.put("4647122000000597449", response.get("Amount"));
+	mergeDataMap.put("4647122000000593377", response.get("terms1"));
+	mergeDataMap.put("4647122000000593413", response.get("Supplier_Address"));
+	mergeDataMap.put("4647122000000602139", response.get("TRN"));
+
+	//Step 3: Prepare Item Table subform 
+	resp = e_Sign_form[ID == input.id]; 
+
+	itemSubformList = List();
+	for each row in resp.Item_Table
+	{
+		rowMap = Map();
+		rowMap.put("4647122000000593584", row.Item_Details);
+		rowMap.put("4647122000000593594", row.Quantity);
+		rowMap.put("4647122000000593607", row.Rate);
+		rowMap.put("4647122000000593615", row.Tax);
+		rowMap.put("4647122000000593627", row.Amount);
+		rowMap.put("4647122000000602147", row.Tax_Amount);
+		rowMap.put("4647122000000593611", row.Discount);
+		itemSubformList.add(rowMap);
+	}
+	mergeDataMap.put("4647122000000593568.4647122000000593584", itemSubformList);
+
+	//Step 4: Prepare Scope subform
+	scopeSubformList = List();
+	for each scope in resp.Scope_field
+	{
+		rowMap = Map();
+		rowMap.put("4647122000000609197", scope.Description);
+		scopeSubformList.add(rowMap);
+	}
+	mergeDataMap.put("4647122000000609181.4647122000000609197", scopeSubformList);
+
+	info "Final Merge Map:";
+	info mergeDataMap;
+
+	//Step 5: Prepare Writer merge parameters
+	paramMap = Map();
+	paramMap.put("merge_data", {"data": mergeDataMap});
+	paramMap.put("output_settings", {"format": "pdf"});
+	paramMap.put("response_type", "link");
+
+	info "Merge Parameters:";
+	info paramMap;
+
+	//Step 6: Invoke Zoho Writer Merge API
+	writerDocumentId = "jbt0odac5c35d1574402f828e2fb8bcb7b104";
+	mergeResponse = invokeurl
+	[
+		url :"https://www.zohoapis.com/writer/api/v1/documents/" + writerDocumentId + "/merge"
+		type :POST
+		parameters : paramMap
+		connection : "zoho_writer_connection"
+	];
+
+	info "Zoho Writer Merge Response:";
+	info mergeResponse;
+
+	respMerge = mergeResponse.get("URL");
+	info "Merged Document URL:";
+	info respMerge;
+
+	//Step 7: Update Zoho Creator record with merge URL
+	updateMap = Map();
+	mpp = Map();
+	updateMap.put("URL", respMerge);
+
+	respUpdate = zoho.creator.updateRecord(
+		creatorAppLinkName,
+		creatorFormLinkName,
+		creatorReportLinkName,
+		recordId,
+		updateMap,
+		mpp,
+		"zoho_creator_connection_for_sign"
+	);
+
+	info "Update Response:";
+	info respUpdate;
+
+}
