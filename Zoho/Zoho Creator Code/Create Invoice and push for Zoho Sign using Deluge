@@ -1,0 +1,126 @@
+void writer.proposal_Custom_function(int id)
+{
+	// Step 1: Fetch record from Zoho Creator 
+	creatorAppLinkName = "aaconsultancy";
+	creatorFormLinkName = "ea-proposals";
+	creatorReportLinkName = "All_Proposals_A";
+	url = "https://www.zohoapis.com/creator/v2.1/data/" + creatorAppLinkName + "/" + creatorFormLinkName + "/report/" + creatorReportLinkName + "/" + id;
+	response = invokeurl
+	[
+		url :url
+		type :GET
+		connection:"zoho_creator"
+	];
+	data = response.get("data");
+	//get the all fields from the data response
+	proposalName = data.get("Proposal_Name");
+	firstName = data.get("First_Name");
+	email = data.get("Email");
+	phoeNumber = data.get("Phone_Number_2");
+	propsoalRefNum = data.get("Proposal_Ref");
+	salesConsultant = data.get("Sales_Consultant");
+	oppName = data.get("Opportunity_Name_CRM_F").get("potential_name");
+	CompanyName = data.get("Company_Name");
+	ProposalDate = data.get("Proposal_Date");
+	lineItems = data.get("Line_Items_SF");
+	//Step 3 : get All fields from the zoho Writer using document id 
+	document_id = "vt9bz67813c559cf54674b8816f345ce7da42";
+	getAllFieldsResponse = invokeurl
+	[
+		url :"https://writer.zoho.com/api/v1/documents/" + document_id + "/fields"
+		type :GET
+		connection:"writerall"
+	];
+	//Step4 : Mapped the data with Zoho Writer template
+	mergeDataMap = Map();
+	mergeDataMap.put("4443269000019334459",proposalName);
+	mergeDataMap.put("4443269000004826087",firstName);
+	mergeDataMap.put("4443269000004826093",email);
+	mergeDataMap.put("4443269000004826091",phoeNumber);
+	mergeDataMap.put("4443269000018374054",propsoalRefNum);
+	mergeDataMap.put("4443269000004826037",salesConsultant);
+	mergeDataMap.put("4443269000004826023",oppName);
+	mergeDataMap.put("4443269000004826051",data.get("Net_Total"));
+	mergeDataMap.put("4443269000019411095",data.get("Vat_5_Total"));
+	mergeDataMap.put("4443269000004826055",data.get("Grand_Total"));
+	mergeDataMap.put("4443269000018374027",CompanyName);
+	mergeDataMap.put("4443269000004826025",ProposalDate);
+	resp = Proposal_Form[ID == input.id];
+	itemSubformList = List();
+	for each  row in resp.Scopes
+	{
+		rowMap = Map();
+		rowMap.put("4443269000019411049",row.Scope_field1);
+		rowMap.put("4443269000004826243",row.scope_field);
+		itemSubformList.add(rowMap);
+	}
+	mergeDataMap.put("4443269000004826045.4443269000004826243",itemSubformList);
+	subformList2 = List();
+	for each  rows in lineItems
+	{
+		rowMap = Map();
+		rowMap.put("4443269000004827139",rows.get("Product_Name_F").get("Name"));
+		rowMap.put("4443269000004827141",rows.get("Description"));
+		rowMap.put("4443269000004827149",rows.get("Discount_Amount"));
+		rowMap.put("4443269000004827147",rows.get("Total"));
+		subformList2.add(rowMap);
+	}
+	mergeDataMap.put("4443269000004826047.4443269000004827137",subformList2);
+	subformList3 = List();
+	for each  rowss in resp.Payment_Breakdowns
+	{
+		rowMap = Map();
+		rowMap.put("4443269000019320538",rowss.Title);
+		rowMap.put("4443269000019320542",rowss.Values_field);
+		subformList3.add(rowMap);
+	}
+	mergeDataMap.put("4443269000019320522.4443269000019320538",subformList3);
+	//Step 5: Prepare Writer merge parameters
+	paramMap = Map();
+	paramMap.put("merge_data",{"data":mergeDataMap});
+	paramMap.put("output_settings",{"format":"pdf"});
+	paramMap.put("response_type","link");
+	info "Merge Parameters:";
+	// 	info paramMap;
+	// 	Step 6: Invoke Zoho Writer Merge API
+	mergeResponse = invokeurl
+	[
+		url :"https://www.zohoapis.com/writer/api/v1/documents/" + document_id + "/merge"
+		type :POST
+		parameters:paramMap
+		connection:"writerall"
+	];
+	info "Zoho Writer Merge Response:";
+	// 	info mergeResponse;
+	//Step 7 : update the URL field
+	respMerge = mergeResponse.get("URL");
+	// 	info respMerge;
+	mpp = Map();
+	mpp.put("url_field",respMerge);
+	updateMap = Map();
+	resp100 = zoho.creator.updateRecord("aaconsultancy","ea-proposals","All_Proposals_A",id,mpp,updateMap,"zoho_creator");
+	// 	info resp100;
+	
+	params = Map();
+	params.put("merge_data", {"data": mergeDataMap});
+	params.put("service_name", "zohosign");
+	params.put("filename", "Test Merge");
+
+	signerList = List();
+	signer = Map();
+	signer.put("recipient_1", email);
+	signer.put("action_type", "sign");
+	signerList.add(signer);
+
+	params.put("signer_data", signerList);
+	mergeSignUrl = "https://www.zohoapis.com/writer/api/v1/documents/" + document_id + "/merge/sign";
+	documentObj = invokeurl 
+	[ 
+	url :mergeSignUrl
+	type :POST 
+	parameters:params 
+	connection:"writerall" 
+	]; 
+	info documentObj;
+	
+}
