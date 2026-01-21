@@ -1,6 +1,8 @@
 
-sync_id = cm_sync.get("module_record_id");
-org_id = organization.get("organization_id");
+org_id = "854775274"; // Zoho Books Org ID
+// record_id = "5323540000009080642"; // Current record ID
+sync_id = "5323540000009180378";
+
 syncResp = invokeurl
 [
 	url :"https://www.zohoapis.com/books/v3/cm_sync/" + sync_id + "?organization_id=" + org_id
@@ -18,7 +20,7 @@ quoteSearchResp = invokeurl
 quotes = quoteSearchResp.get("estimates");
 if(quotes.size() == 0)
 {
-	return {"error":"Quote not found with number: " + quote_number};
+	info {"error":"Quote not found with number: " + quote_number};
 }
 quote_id = quotes.get(0).get("estimate_id");
 quoteResp = invokeurl
@@ -79,7 +81,7 @@ invoiceResp = invokeurl
 ];
 if(!invoiceResp.containsKey("invoice"))
 {
-	return {"error":"Invoice creation failed","response":invoiceResp.toString()};
+	info {"error":"Invoice creation failed","response":invoiceResp.toString()};
 }
 invoice = invoiceResp.get("invoice");
 invoice_number = invoice.get("invoice_number");
@@ -95,4 +97,44 @@ updateResp = invokeurl
 responseMap = Map();
 responseMap.put("message","Invoice Created Successfully: " + invoice_number);
 responseMap.put("invoice_number",invoice_number);
-return responseMap;
+info responseMap;
+
+
+// ================= PAYMENT RECEIVED CREATION =================
+
+invoice_id = invoice.get("invoice_id");
+invoice_total = invoice.get("total");
+
+// Prepare invoice payment application
+invoicePaymentList = List();
+invoicePaymentMap = Map();
+invoicePaymentMap.put("invoice_id", invoice_id);
+invoicePaymentMap.put("amount_applied", invoice_total);
+invoicePaymentList.add(invoicePaymentMap);
+
+// Payment Map
+paymentMap = Map();
+paymentMap.put("customer_id", invoice.get("customer_id"));
+paymentMap.put("payment_mode", "Cash"); // Change if needed
+paymentMap.put("amount", invoice_total);
+paymentMap.put("date", zoho.currentdate.toString("yyyy-MM-dd"));
+paymentMap.put("invoices", invoicePaymentList);
+
+// Create Payment
+paymentResp = invokeurl
+[
+	url :"https://www.zohoapis.com/books/v3/customerpayments?organization_id=" + org_id
+	type :POST
+	parameters:paymentMap.toString()
+	connection:"zohobooks_connection"
+];
+
+if(!paymentResp.containsKey("payment"))
+{
+	info {"error":"Payment creation failed","response":paymentResp.toString()};
+}
+else
+{
+	payment = paymentResp.get("payment");
+	info {"message":"Payment received successfully","payment_number":payment.get("payment_number")};
+}
