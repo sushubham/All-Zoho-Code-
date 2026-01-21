@@ -1,108 +1,98 @@
-org_id = "854775274"; // Zoho Books Org ID
-record_id = "5323540000009080642"; // Current record ID
-sync_id = "5323540000009185007";
 
-// 1 Get Sync record
+sync_id = cm_sync.get("module_record_id");
+org_id = organization.get("organization_id");
 syncResp = invokeurl
 [
 	url :"https://www.zohoapis.com/books/v3/cm_sync/" + sync_id + "?organization_id=" + org_id
-	type : GET
-	connection : "zohobooks_connection"
+	type :GET
+	connection:"zohobooks_connection"
 ];
-
 syncRec = syncResp.get("module_record");
-
-// 2 Get Quote using Quote Number
 quote_number = syncRec.get("cf_quote_number");
-
 quoteSearchResp = invokeurl
 [
 	url :"https://www.zohoapis.com/books/v3/estimates?organization_id=" + org_id + "&estimate_number=" + quote_number
-	type : GET
-	connection : "zohobooks_connection"
+	type :GET
+	connection:"zohobooks_connection"
 ];
-
 quotes = quoteSearchResp.get("estimates");
-
 if(quotes.size() == 0)
 {
-	info "Quote not found!";
+	return {"error":"Quote not found with number: " + quote_number};
 }
-
 quote_id = quotes.get(0).get("estimate_id");
-
-// 3 Fetch Quote details
 quoteResp = invokeurl
 [
 	url :"https://www.zohoapis.com/books/v3/estimates/" + quote_id + "?organization_id=" + org_id
-	type : GET
-	connection : "zohobooks_connection"
+	type :GET
+	connection:"zohobooks_connection"
 ];
-
 quote = quoteResp.get("estimate");
-
-// 4 Rebuild Line Items  
 newLineItems = List();
-
-for each li in quote.get("line_items")
+for each  li in quote.get("line_items")
 {
 	lineMap = Map();
-	lineMap.put("item_id", li.get("item_id"));
-	lineMap.put("rate", li.get("rate"));
-	lineMap.put("quantity", li.get("quantity"));
-
-	// Optional fields
-	if(li.containsKey("description") && li.get("description") != "")
+	lineMap.put("item_id",li.get("item_id"));
+	lineMap.put("rate",li.get("rate"));
+	lineMap.put("quantity",li.get("quantity"));
+	if(li.containsKey("description") && li.get("description") != null && li.get("description") != "")
 	{
-		lineMap.put("description", li.get("description"));
+		lineMap.put("description",li.get("description"));
 	}
-
-	if(li.containsKey("tax_id") && li.get("tax_id") != "")
+	if(li.containsKey("tax_id") && li.get("tax_id") != null && li.get("tax_id") != "")
 	{
-		lineMap.put("tax_id", li.get("tax_id"));
+		lineMap.put("tax_id",li.get("tax_id"));
 	}
-
-	if(li.containsKey("discount") && li.get("discount") > 0)
+	isValidDiscount = false;
+	discountValue = li.get("discount");
+	if(discountValue != null)
 	{
-		lineMap.put("discount", li.get("discount"));
+		try 
+		{
+			discountDecimal = discountValue.toDecimal();
+			if(discountDecimal > 0)
+			{
+				isValidDiscount = true;
+			}
+		}
+		catch (e)
+		{
+			isValidDiscount = false;
+		}
 	}
-
+	if(isValidDiscount)
+	{
+		lineMap.put("discount",discountValue);
+	}
 	newLineItems.add(lineMap);
 }
-
-// 5 Create Invoice
 invoiceMap = Map();
-invoiceMap.put("customer_id", quote.get("customer_id"));
-invoiceMap.put("reference_number", quote.get("estimate_number"));
-invoiceMap.put("line_items", newLineItems);
-
+invoiceMap.put("customer_id",quote.get("customer_id"));
+invoiceMap.put("reference_number",quote.get("estimate_number"));
+invoiceMap.put("line_items",newLineItems);
 invoiceResp = invokeurl
 [
 	url :"https://www.zohoapis.com/books/v3/invoices?organization_id=" + org_id
-	type : POST
-	parameters : invoiceMap.toString()
-	connection : "zohobooks_connection"
+	type :POST
+	parameters:invoiceMap.toString()
+	connection:"zohobooks_connection"
 ];
-// info invoiceResp;
-// 6 Read Invoice Number
+if(!invoiceResp.containsKey("invoice"))
+{
+	return {"error":"Invoice creation failed","response":invoiceResp.toString()};
+}
 invoice = invoiceResp.get("invoice");
 invoice_number = invoice.get("invoice_number");
-
-// 7 Update Sync Record
 updateMap = Map();
-updateMap.put("invoice_number", invoice_number);
-
+updateMap.put("invoice_number",invoice_number);
 updateResp = invokeurl
 [
 	url :"https://www.zohoapis.com/books/v3/cm_sync/" + sync_id + "?organization_id=" + org_id
-	type : PUT
-	parameters : updateMap.toString()
-	connection : "zohobooks_connection"
+	type :PUT
+	parameters:updateMap.toString()
+	connection:"zohobooks_connection"
 ];
-info "Invoice Created Successfully: " + invoice_number;
-
-
-
-
-
-
+responseMap = Map();
+responseMap.put("message","Invoice Created Successfully: " + invoice_number);
+responseMap.put("invoice_number",invoice_number);
+return responseMap;
